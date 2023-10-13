@@ -66,29 +66,30 @@ module HealthBit
     self
   end
 
-  # @return [nil, CheckError]
+  # @return [CheckError]
   def check(env)
-    checks.each do |check|
-      (exception = check.call(env)).nil? ? next : (return exception)
+    results = checks.map do |check|
+      check.call(env)
     end
 
-    nil
+    results.compact
   end
 
   def rack(this = self)
     @rack ||= Rack::Builder.new do
       run ->(env) do
-        if (error = this.check(env))
+        errors = this.check(env)
+        if errors.any?
           [
-            this.formatter.code_failure(error, env, this),
-            this.formatter.headers_failure(error, env, this),
-            [this.formatter.format_failure(error, env, this)]
+            this.formatter.code_failure(errors, env, this),
+            this.formatter.headers_failure(errors, env, this),
+            [this.formatter.format_failure(errors, env, this)]
           ]
         else
           [
             this.formatter.code_success(env, this),
             this.formatter.headers_success(env, this),
-            [this.formatter.format_success(error, env, this)]
+            [this.formatter.format_success(errors, env, this)] # not sure why there would be errors on success
           ]
         end
       end
